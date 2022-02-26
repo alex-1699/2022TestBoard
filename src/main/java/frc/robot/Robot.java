@@ -1,6 +1,20 @@
-// Copyright (c) FIRST and other WPILib contributors.
-// Open Source Software; you can modify and/or share it under the terms of
-// the WPILib BSD license file in the root directory of this project.
+/*
+CONTROLS!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+k so. u gotta click some buttons to do some things. nothing is automated
+
+DRIVER JOYSTICK:
+move the joystick (x and y) to move the robot (hopefully)
+click button 5 (top left face button) to toggle both climber solenoids
+
+OPERATOR JOYSTICK:
+hold trigger to hold the HOPPER STOPPER down
+press button 2 (thumb button) to toggle the INTAKE ARM solenoid
+button 11 runs SHOOTER
+hold button 12 to run the intake motor
+press button 9 to toggle THE HOOD
+*/
+
 
 package frc.robot;
 
@@ -8,180 +22,163 @@ import edu.wpi.first.wpilibj.TimedRobot;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj.Joystick;
-import edu.wpi.first.wpilibj.motorcontrol.VictorSP;
+import com.ctre.phoenix.motorcontrol.TalonSRXControlMode;
+import com.ctre.phoenix.motorcontrol.can.TalonSRX;
+import com.ctre.phoenix.motorcontrol.can.TalonFX;
+import edu.wpi.first.wpilibj.PneumaticsModuleType;
+import edu.wpi.first.wpilibj.DoubleSolenoid;
+import com.ctre.phoenix.motorcontrol.TalonFXControlMode;
+import edu.wpi.first.networktables.NetworkTable;
+import edu.wpi.first.networktables.NetworkTableEntry;
+import edu.wpi.first.networktables.NetworkTableInstance;
 
-
-/**
- * The VM is configured to automatically run this class, and to call the functions corresponding to
- * each mode, as described in the TimedRobot documentation. If you change the name of this class or
- * the package after creating this project, you must also update the build.gradle file in the
- * project.
- */
 public class Robot extends TimedRobot {
-  private static final String kDefaultAuto = "Default";
-  private static final String kCustomAuto = "My Auto";
-  private String m_autoSelected;
-  private final SendableChooser<String> m_chooser = new SendableChooser<>();
-  public Joystick joystick;
-  public VictorSP m_motor0;
-  public VictorSP m_motor1;
+  public Joystick driveJoystick;
+  public Joystick opJoystick;
+  public TalonSRX m_shooterPort;
+  public TalonSRX m_shooterStar;
+  public TalonSRX m_intakerMan;
+  public double throt;
+  //drive talons
+  public TalonFX m_portDriveFX1, m_portDriveFX2, m_portDriveFX3, m_starDriveFX1, m_starDriveFX2, m_starDriveFX3;
+  private DoubleSolenoid intakeSolenoid, hopperStopper, shooterAngleSolenoid, climberSolenoidPort, climberSolenoidStar;
+  
   public double throtSpd;
-
-  
   
 
-  /**
-   * This function is run when the robot is first started up and should be used for any
-   * initialization code.
-   */
   @Override
   public void robotInit() {
-    //m_chooser.setDefaultOption("Default Auto", kDefaultAuto);
-    //m_chooser.addOption("My Auto", kCustomAuto);
-    //SmartDashboard.putData("Auto choices", m_chooser);
-    joystick = new Joystick(0);
-    m_motor0 = new VictorSP(0);
-    m_motor1 = new VictorSP(1);
+
+    driveJoystick = new Joystick(Constants.kDriveJoystickPort);
+    opJoystick = new Joystick(Constants.kOperatorJoystickPort);
+    //shooter motors
+    m_shooterPort = new TalonSRX(Constants.kPortShooterPort);
+    m_shooterStar = new TalonSRX(Constants.kStarShooterPort);
+
+    //drive mototrz (port)
+    m_portDriveFX1 = new TalonFX(Constants.kPortDrivePort1);
+    m_portDriveFX2 = new TalonFX(Constants.kStarDrivePort2);
+    m_portDriveFX3 = new TalonFX(Constants.kStarDrivePort3);
+    //drive mortoe (starboard)
+    m_starDriveFX1 = new TalonFX(Constants.kStarDrivePort1);
+    m_starDriveFX2 = new TalonFX(Constants.kStarDrivePort2);
+    m_starDriveFX3 = new TalonFX(Constants.kStarDrivePort3);
+
+    //inake motor!!!
+    m_intakerMan = new TalonSRX(Constants.kIntakeHoppPort);
+
+    //solenoids <3
+    intakeSolenoid = new DoubleSolenoid(Constants.kIntakeSolenoidModulePort, PneumaticsModuleType.CTREPCM, Constants.kIntakeSolenoidForwardPort, Constants.kIntakeSolenoidReversePort);
+    hopperStopper = new DoubleSolenoid(Constants.kFlopperSolenoidModulePort, PneumaticsModuleType.CTREPCM, Constants.kFlopperSolenoidForwardPort, Constants.kFlopperSolenoidReversePort);
+    shooterAngleSolenoid = new DoubleSolenoid(Constants.kShooterAngleSolenoidModulePort, PneumaticsModuleType.CTREPCM, Constants.kShooterAngleSolenoidForwardPort, Constants.kShooterAngleSolenoidReversePort);
+    climberSolenoidPort = new DoubleSolenoid(Constants.kPortClimberModulePort, PneumaticsModuleType.CTREPCM, Constants.kPortClimberForwardPort, Constants.kPortClimberReversePort);
+    climberSolenoidStar = new DoubleSolenoid(Constants.kStarClimberModulePort, PneumaticsModuleType.CTREPCM, Constants.kStarClimberForwardPort, Constants.kStarClimberReversePort);
+
   }
 
-//For testing motors 
- 
-  public void printOut(){
-   
-
-    // Toggle motors from buttons
-    if (joystick.getRawButton(8)){
-      //System.out.println("Motor 0 (button 8) speed is now: "+joystick.getZ());
-      m_motor0.set(joystick.getZ());
-    }
-    if (joystick.getRawButton(9)) {
-      //System.out.println("Motor 1 (button 9) speed is now: "+joystick.getZ());
-      m_motor1.set(joystick.getZ());
-    if (joystick.getRawButton(2));
-      m_motor0.set(0);
-      m_motor1.set(0);
-    }
-
-  }
-  
-
-
-  /**
-   * This function is called every robot packet, no matter the mode. Use this for items like
-   * diagnostics that you want ran during disabled, autonomous, teleoperated and test.
-   *
-   * <p>This runs after the mode specific periodic functions, but before LiveWindow and
-   * SmartDashboard integrated updating.
-   */
   @Override
-  public void robotPeriodic() {
-    
-  }
+  public void robotPeriodic() {}
 
-  /**
-   * This autonomous (along with the chooser code above) shows how to select between different
-   * autonomous modes using the dashboard. The sendable chooser code works with the Java
-   * SmartDashboard. If you prefer the LabVIEW Dashboard, remove all of the chooser code and
-   * uncomment the getString line to get the auto name from the text box below the Gyro
-   *
-   * <p>You can add additional auto modes by adding additional comparisons to the switch structure
-   * below with additional strings. If using the SendableChooser make sure to add them to the
-   * chooser code above as well.
-   */
   @Override
-  public void autonomousInit() {
-    m_autoSelected = m_chooser.getSelected();
-    // m_autoSelected = SmartDashboard.getString("Auto Selector", kDefaultAuto);
-    System.out.println("Auto selected: " + m_autoSelected);
-  }
+  public void autonomousInit() {}
 
-  /** This function is called periodically during autonomous. */
-  @Override
-  public void autonomousPeriodic() {
-    switch (m_autoSelected) {
-      case kCustomAuto:
-        // Put custom auto code here
-        break;
-      case kDefaultAuto:
-      default:
-        // Put default auto code here
-        break;
-    }
-  }
-
-  /** This function is called once when teleop is enabled. */
   @Override
   public void teleopInit() {}
 
-  /** This function is called periodically during operator control. */
   @Override
   public void teleopPeriodic() {}
 
-  /** This function is called once when the robot is disabled. */
   @Override
   public void disabledInit() {}
 
-  /** This function is called periodically when disabled. */
   @Override
   public void disabledPeriodic() {}
 
-  /** This function is called once when test mode is enabled. */
   @Override
   public void testInit() {}
 
-  /** This function is called periodically during test mode. */
   @Override
   public void testPeriodic() {
+    //sets the throttle thingy which makes robot go slo
+    throt = (-driveJoystick.getThrottle() + 1) / 2;
 
-      // if (joystick.getRawButton(8)){
-      //   m_motor0.set(joystick.getZ());
-      // }else{
-      //   m_motor0.set(0);
-      // }
-      // if (joystick.getRawButton(9)) {
-      //   m_motor1.set(joystick.getZ());
-      // }else
-      // {
-      //   m_motor1.set(0);
-      // }
-    if (joystick.getRawButton(11)){
-      m_motor0.set(joystick.getZ());
-      m_motor1.set(-1*joystick.getZ());  
+    //DRIVE!!!!!!!!!
+    runArcadeDrive(driveJoystick.getX(), -driveJoystick.getY());
+
+    //INTAKE! INTAKE! INTAKE...
+    if (opJoystick.getRawButton(12)){
+      m_intakerMan.set(TalonSRXControlMode.PercentOutput, 0.50);
     } else {
-      m_motor0.set(0);
-      m_motor1.set(0);
+      m_intakerMan.set(TalonSRXControlMode.PercentOutput, 0);
     }
-      
-      // if button throttle mode is enabled, increase and decrease the throttle based on buttons 6 and 7.
-
-  // else {
-  //   m_motor0.set(throtSpd/100);
-  //   if (joystick.getRawButtonPressed(6)) {
-  //     m_motor0.set(m_motor0.get() + 0.01);
-  //     m_motor1.set(m_motor0.get() + 0.01);
-  //     System.out.println("Throttle value: "+throtSpd+"%");
-  //   }
-  //   else if (joystick.getRawButtonPressed(7)){
-  //     m_motor0.set(m_motor0.get() - 0.01);
-  //     m_motor1.set(m_motor0.get() - 0.01);
-  //     System.out.println("Throttle value: "+throtSpd+"%");
-  //   }
-
-
-
-
-    throtSpd = 100*joystick.getZ();
-    throtSpd = Math.round(throtSpd);
-    if (joystick.getRawButtonReleased(8) || joystick.getRawButtonReleased(9) || joystick.getRawButtonReleased(11)) {
-      System.out.println("Throttle value: "+throtSpd+"%");
+    if (opJoystick.getRawButtonPressed(2)) {
+      intakeSolenoid.toggle();
     }
-    if (joystick.getRawButtonPressed(10)) {
-      System.out.println("Throttle value: "+throtSpd+"%");
+    //HOPPA STOPPA
+    if (opJoystick.getRawButtonPressed(1)) {
+      hopperStopper.toggle();
     }
-    // if (joystick.getRawButtonPressed(11)) {
-    //   buttThrot = !buttThrot;
-    //   System.out.println("Button throttle mode toggled. 6 to increase throttle by 1, 7 to decrease by 1");
-    // }
+    if (opJoystick.getRawButtonReleased(1)) {
+      hopperStopper.toggle();
+    }
+
+    //run both shooter boys when u click button 11 on operator joystick
+    if (opJoystick.getRawButton(11)){
+      m_shooterPort.set(TalonSRXControlMode.PercentOutput, 0.55);
+      m_shooterStar.set(TalonSRXControlMode.PercentOutput, -0.55);  
+    } else {
+      m_shooterPort.set(TalonSRXControlMode.PercentOutput, 0);
+      m_shooterStar.set(TalonSRXControlMode.PercentOutput, 0);
+    }
+    
+    //climby climby
+    if (driveJoystick.getRawButtonPressed(5)) {
+      climberSolenoidPort.toggle();
+      climberSolenoidStar.toggle();
+    }
+
+    //shooter angle UwU
+    if (opJoystick.getRawButtonPressed(9)) {
+      shooterAngleSolenoid.toggle();
+    }
 
   }
+  protected void runArcadeDrive(double throttle, double rotate) {
+    double portOutput = 0.0;
+    double starOutput = 0.0;
+
+    throttle = Math.copySign(throttle * throttle, throttle);
+    rotate = Math.copySign(rotate * rotate, rotate);
+
+    double maxInput = Math.copySign(Math.max(Math.abs(throttle), Math.abs(rotate)), throttle);
+
+    if (throttle >= 0.0) {
+        // First quadrant, else second quadrant
+        if (rotate >= 0.0) {
+            portOutput = maxInput;
+            starOutput = throttle - rotate;
+        } else {
+            portOutput = throttle + rotate;
+            starOutput = maxInput;
+        }
+    } else {
+        // Third quadrant, else fourth quadrant
+        if (rotate >= 0.0) {
+            portOutput = throttle + rotate;
+            starOutput = maxInput;
+        } else {
+            portOutput = maxInput;
+            starOutput = throttle - rotate;
+        }
+    }
+
+    //actaully set the drive motors
+    m_portDriveFX1.set(TalonFXControlMode.PercentOutput, portOutput * throt);
+    m_portDriveFX2.set(TalonFXControlMode.PercentOutput, portOutput * throt);
+    m_portDriveFX3.set(TalonFXControlMode.PercentOutput, portOutput * throt);
+
+    m_starDriveFX1.set(TalonFXControlMode.PercentOutput, starOutput * throt);
+    m_starDriveFX2.set(TalonFXControlMode.PercentOutput, starOutput * throt);
+    m_starDriveFX3.set(TalonFXControlMode.PercentOutput, starOutput * throt);
+}
 }
